@@ -3,79 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Audio Call</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Audio Call App</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-database-compat.js"></script>
     <style>
         body {
-            background: linear-gradient(130deg, #1a1a1a 0%, #2d3436 100%);
-            color: white;
             font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
+            gap: 10px;
+            margin-bottom: 20px;
         }
-        #toast {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            display: none;
-            z-index: 1000;
-        }
-        .controls {
-            margin-top: 1rem;
-            display: flex;
-            gap: 1rem;
-        }
+        
         button {
-            padding: 0.5rem 1rem;
+            padding: 10px 20px;
             border: none;
-            border-radius: 0.5rem;
-            background-color: #4CAF50;
+            border-radius: 4px;
+            background-color: #0084ff;
             color: white;
             cursor: pointer;
-            transition: 0.2s ease-in-out;
+            font-size: 16px;
+            transition: background-color 0.2s;
         }
+        
         button:hover {
-            background-color: #45a049;
+            background-color: #0066cc;
         }
-        button.end-call {
-            background-color: #f44336;
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
-        button.end-call:hover {
-            background-color: #e53935;
+        
+        input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
         }
-        input, button {
-            font-size: 1rem;
+        
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #e8f5e9;
         }
-        #roomIdDisplay {
-            margin-top: 1rem;
-            font-size: 1.2rem;
-            font-weight: bold;
+        
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <h1>Global Audio Call</h1>
-    <p id="roomIdDisplay">Room ID: <span id="roomId"></span></p>
-    <div class="controls">
-        <button id="joinRoom">Join/Create Room</button>
-        <button id="toggleAudio">Mute/Unmute</button>
-        <button id="endCall" class="end-call">End Call</button>
+    <div class="container">
+        <h1>Audio Call App</h1>
+        <div class="controls">
+            <input type="text" id="roomId" placeholder="Enter Room ID">
+            <button id="createButton">Create Room</button>
+            <button id="joinButton">Join Room</button>
+            <button id="hangupButton" disabled>Hang Up</button>
+        </div>
+        <div id="status" class="status">Ready to start a call</div>
+        <div id="error" class="error" style="display: none;"></div>
     </div>
-    <div id="toast"></div>
 
-    <!-- Firebase Scripts -->
-    <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.17.2/firebase-database-compat.js"></script>
     <script>
-        // Firebase Configuration
+        // Initialize Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDB_ylrW7hartjCjSAqjjZjUoNSrSX7Et4",
             authDomain: "blogs-a7325.firebaseapp.com",
@@ -86,186 +97,201 @@
             appId: "1:868013133674:web:8ceaa7dfa63ee0d2a0df13",
             measurementId: "G-RJX09FKMMY"
         };
+        
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
 
-        // Initialize Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.database(app);
-
-        // WebRTC Configuration
+        // WebRTC configuration
         const configuration = {
             iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' }
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
             ]
         };
 
-        // DOM Elements
-        const roomIdDisplay = document.getElementById('roomId');
-        const joinRoomBtn = document.getElementById('joinRoom');
-        const toggleAudioBtn = document.getElementById('toggleAudio');
-        const endCallBtn = document.getElementById('endCall');
-        const toast = document.getElementById('toast');
-
-        // Variables
         let peerConnection;
         let localStream;
-        let isAudioEnabled = true;
-        let currentRoom;
+        let roomId;
 
-        // Toast Notification
-        function showToast(message, duration = 3000) {
-            toast.textContent = message;
-            toast.style.display = 'block';
-            setTimeout(() => {
-                toast.style.display = 'none';
-            }, duration);
-        }
+        // DOM elements
+        const createButton = document.getElementById('createButton');
+        const joinButton = document.getElementById('joinButton');
+        const hangupButton = document.getElementById('hangupButton');
+        const roomIdInput = document.getElementById('roomId');
+        const statusDiv = document.getElementById('status');
+        const errorDiv = document.getElementById('error');
 
-        // Generate random room ID
-        function generateRoomId() {
-            return Math.random().toString(36).substring(2, 8).toUpperCase();
-        }
+        // Event listeners
+        createButton.addEventListener('click', createRoom);
+        joinButton.addEventListener('click', joinRoom);
+        hangupButton.addEventListener('click', hangup);
 
-        // Initialize Audio Stream
-        async function initializeStream() {
+        async function createRoom() {
             try {
+                roomId = roomIdInput.value || Math.random().toString(36).substring(7);
+                roomIdInput.value = roomId;
+                
+                // Get local audio stream
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Create peer connection
+                peerConnection = new RTCPeerConnection(configuration);
+                setupPeerConnection();
+                
+                // Add local stream to peer connection
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+
+                // Create and set local description
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                // Save the offer to Firebase
+                await database.ref(`rooms/${roomId}/offer`).set({
+                    type: offer.type,
+                    sdp: offer.sdp
+                });
+
+                // Listen for the answer
+                database.ref(`rooms/${roomId}/answer`).on('value', async snapshot => {
+                    const answer = snapshot.val();
+                    if (answer && !peerConnection.currentRemoteDescription) {
+                        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                    }
+                });
+
+                updateStatus('Room created! Waiting for someone to join...');
+                updateButtons(true);
+
             } catch (error) {
-                console.error('Error accessing audio devices:', error);
-                showToast('Error accessing microphone. Please check permissions.');
+                showError(`Error creating room: ${error.message}`);
             }
         }
 
-        // Create or Join Room
-        async function createOrJoinRoom() {
+        async function joinRoom() {
             try {
-                const roomId = prompt('Enter room ID or leave empty to create new room:');
-                currentRoom = roomId || generateRoomId();
-                roomIdDisplay.textContent = currentRoom;
-
-                const roomRef = db.ref(`rooms/${currentRoom}`);
-                const roomSnapshot = await roomRef.once('value');
-
-                if (roomSnapshot.exists()) {
-                    joinRoom(currentRoom);
-                } else {
-                    createRoom(currentRoom);
+                roomId = roomIdInput.value;
+                if (!roomId) {
+                    throw new Error('Please enter a room ID');
                 }
-            } catch (error) {
-                console.error('Error creating/joining room:', error);
-                showToast('Error connecting to room. Please try again.');
-            }
-        }
 
-        // Create Room
-        async function createRoom(roomId) {
-            peerConnection = new RTCPeerConnection(configuration);
+                // Get local audio stream
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Create peer connection
+                peerConnection = new RTCPeerConnection(configuration);
+                setupPeerConnection();
+                
+                // Add local stream to peer connection
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
 
-            // Add local audio track
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-            // Offer creation
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-
-            // Save offer to Firebase
-            db.ref(`rooms/${roomId}`).set({ offer: peerConnection.localDescription });
-
-            // Listen for remote answer
-            db.ref(`rooms/${roomId}/answer`).on('value', async (snapshot) => {
-                const answer = snapshot.val();
-                if (answer) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                // Get the offer from Firebase
+                const snapshot = await database.ref(`rooms/${roomId}/offer`).get();
+                const offer = snapshot.val();
+                if (!offer) {
+                    throw new Error('Room not found');
                 }
-            });
 
-            setupConnection(roomId);
-        }
-
-        // Join Room
-        async function joinRoom(roomId) {
-            peerConnection = new RTCPeerConnection(configuration);
-
-            // Add local audio track
-            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-            // Get remote offer
-            const roomRef = db.ref(`rooms/${roomId}`);
-            const roomSnapshot = await roomRef.once('value');
-            const offer = roomSnapshot.val()?.offer;
-
-            if (offer) {
+                // Set remote description (offer)
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
+                // Create and set local description (answer)
                 const answer = await peerConnection.createAnswer();
                 await peerConnection.setLocalDescription(answer);
 
-                // Save answer to Firebase
-                roomRef.child('answer').set(peerConnection.localDescription);
+                // Save the answer to Firebase
+                await database.ref(`rooms/${roomId}/answer`).set({
+                    type: answer.type,
+                    sdp: answer.sdp
+                });
+
+                updateStatus('Joined room! Connected to peer.');
+                updateButtons(true);
+
+            } catch (error) {
+                showError(`Error joining room: ${error.message}`);
+            }
+        }
+
+        function setupPeerConnection() {
+            // Handle ICE candidates
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    database.ref(`rooms/${roomId}/candidates`).push({
+                        candidate: event.candidate.candidate,
+                        sdpMid: event.candidate.sdpMid,
+                        sdpMLineIndex: event.candidate.sdpMLineIndex
+                    });
+                }
+            };
+
+            // Listen for remote ICE candidates
+            database.ref(`rooms/${roomId}/candidates`).on('child_added', snapshot => {
+                const candidate = snapshot.val();
+                peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            });
+
+            // Handle remote stream
+            peerConnection.ontrack = event => {
+                const remoteAudio = new Audio();
+                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.play();
+                updateStatus('Connected! Audio streaming...');
+            };
+
+            // Handle connection state changes
+            peerConnection.onconnectionstatechange = () => {
+                if (peerConnection.connectionState === 'disconnected') {
+                    hangup();
+                }
+            };
+        }
+
+        function hangup() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
             }
 
-            setupConnection(roomId);
-        }
-
-        // Queue to store ICE candidates until the remote description is set
-let iceCandidateQueue = [];
-
-// Setup Connection Listeners
-function setupConnection(roomId) {
-    peerConnection.ontrack = (event) => {
-        showToast('Connected to remote user.');
-    };
-
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            db.ref(`rooms/${roomId}/iceCandidates`).push(event.candidate.toJSON());
-        }
-    };
-
-    // Process incoming ICE candidates
-    db.ref(`rooms/${roomId}/iceCandidates`).on('child_added', async (snapshot) => {
-        const candidate = new RTCIceCandidate(snapshot.val());
-
-        if (peerConnection.remoteDescription) {
-            // If remote description is already set, add the ICE candidate
-            await peerConnection.addIceCandidate(candidate);
-        } else {
-            // Otherwise, queue the candidate
-            iceCandidateQueue.push(candidate);
-        }
-    });
-
-    // When the remote description is set, process the queued ICE candidates
-    peerConnection.onconnectionstatechange = async () => {
-        if (peerConnection.connectionState === "connected") {
-            // Add queued ICE candidates after remote description is ready
-            for (const candidate of iceCandidateQueue) {
-                await peerConnection.addIceCandidate(candidate);
+            if (roomId) {
+                database.ref(`rooms/${roomId}`).remove();
+                roomId = null;
             }
-            iceCandidateQueue = []; // Clear the queue
-        }
-    };
-}
 
-        // Toggle Audio
-        function toggleAudio() {
-            isAudioEnabled = !isAudioEnabled;
-            localStream.getAudioTracks()[0].enabled = isAudioEnabled;
-            showToast(isAudioEnabled ? 'Audio Unmuted' : 'Audio Muted');
+            updateStatus('Call ended');
+            updateButtons(false);
+            roomIdInput.value = '';
         }
 
-        // End Call
-        function endCall() {
-            peerConnection.close();
-            showToast('Call ended.');
+        function updateButtons(inCall) {
+            createButton.disabled = inCall;
+            joinButton.disabled = inCall;
+            hangupButton.disabled = !inCall;
+            roomIdInput.disabled = inCall;
         }
 
-        // Event Listeners
-        joinRoomBtn.addEventListener('click', createOrJoinRoom);
-        toggleAudioBtn.addEventListener('click', toggleAudio);
-        endCallBtn.addEventListener('click', endCall);
+        function updateStatus(message) {
+            statusDiv.textContent = message;
+            errorDiv.style.display = 'none';
+        }
 
-        // Initialize
-        initializeStream();
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            hangup();
+        }
+
+        // Clean up when the page is closed
+        window.addEventListener('beforeunload', hangup);
     </script>
 </body>
 </html>
