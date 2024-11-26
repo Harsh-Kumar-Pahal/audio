@@ -3,295 +3,213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Call App</title>
+    <title>Incoming Call</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-app-compat.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.0/firebase-database-compat.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f0f2f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 1) 0%, rgb(42, 42, 42) 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #000000;
+            color: white;
         }
-        
-        .container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        
-        .controls {
+
+        .call-screen {
+            width: 100%;
+            max-width: 400px;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            margin-bottom: 20px;
+            align-items: center;
+            padding: 3rem 1rem;
+            /* background: linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgb(31, 31, 31) 100%); */
         }
-        
-        button {
-            padding: 10px 20px;
+
+        .caller-info {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .profile-circle {
+            width: 200px;
+            height: 200px;
+            background: #686868;
+            /* box-shadow: 2px px 1px rgb(34, 34, 34) inset; */
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -100%);
+        }
+
+        .profile-circle i {
+            font-size: 8rem;
+            color: #666;
+        }
+
+        .caller-name {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .call-status {
+            margin-top: 420px;
+            font-size: 1.1rem;
+            color: #ffffff;
+        }
+
+        .timer {
+            font-size: 1.5rem;
+            margin-top: 1rem;
+            color: #888;
+        }
+
+        .call-controls {
+    border-radius: 35px;
+    position: fixed; /* Use fixed positioning to stay at the bottom */
+    left: 50%; /* Position the element in the middle horizontally */
+    bottom: 1rem; /* Set the distance from the bottom */
+    transform: translateX(-50%); /* Center it horizontally by adjusting for the element's width */
+    display: flex;
+    justify-content: center;
+    gap: 1.2rem;
+    background-color: rgba(255, 255, 255, 0.223);
+    padding: 5px;
+    width: 210px;
+}
+
+
+        .call-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
             border: none;
-            border-radius: 4px;
-            background-color: #0084ff;
-            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
-            font-size: 16px;
-            transition: background-color 0.2s;
+            transition: all 0.3s ease;
         }
-        
-        button:hover {
-            background-color: #0066cc;
+
+        .call-btn i {
+            font-size: 2rem;
+            color: white;
         }
-        
-        button:disabled {
-            background-color: #cccccc;
+
+        .answer-btn {
+            background: #000000;
+        }
+
+        .answer-btn:hover {
+            background: #00ff0d25;
+            transform: scale(1.1);
+        }
+
+        .hangup-btn {
+            background: #ff1313;
+        }
+
+        .hangup-btn:hover {
+            background: #ff3333;
+            transform: scale(1.1);
+        }
+
+        .room-input {
+            position: absolute;
+            top: 3rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 300px;
+        }
+
+        .room-input input {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 25px;
+            background: none;
+            color: white;
+            text-align: center;
+            font-size: 1rem;
+        }
+
+        .room-input input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .room-input input:focus {
+            outline: none;
+            background: none;
+        }
+
+        .call-btn:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
         }
-        
-        input {
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        
-        .status {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 4px;
-            background-color: #e8f5e9;
-        }
-        
+
         .error {
-            background-color: #ffebee;
-            color: #c62828;
-            padding: 10px;
-            border-radius: 4px;
-            margin-top: 10px;
+            position: absolute;
+            top: 6rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 68, 68, 0.9);
+            padding: 1rem;
+            border-radius: 12px;
+            display: none;
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Audio Call App</h1>
-        <div class="controls">
+    <div class="call-screen">
+        <div class="room-input">
             <input type="text" id="roomId" placeholder="Enter Room ID">
-            <button id="createButton">Create Room</button>
-            <button id="joinButton">Join Room</button>
-            <button id="hangupButton" disabled>Hang Up</button>
         </div>
-        <div id="status" class="status">Ready to start a call</div>
-        <div id="error" class="error" style="display: none;"></div>
+        
+        <div id="error" class="error"></div>
+
+        <div class="caller-info">
+            <div class="profile-circle">
+                <i class="fa-solid fa-user fa-2xl" style="color: #ffffff;"></i>
+            </div>
+            <!-- <h1 class="caller-name">User</h1> -->
+            <p class="call-status" id="status">Ready to connect</p>
+            <div class="timer" id="callTimer"></div>
+        </div>
+
+        <div class="call-controls">
+            <button id="createButton" class="call-btn answer-btn">
+                <i class="fas fa-phone" style="color: #37f240; font-size: 25px;"></i>
+            </button>
+            <button id="joinButton" class="call-btn answer-btn">
+                <i class="fa-solid fa-plus" style="color: #ffffff; font-size: 25px;" ></i>
+            </button>
+            <button id="hangupButton" class="call-btn hangup-btn" disabled>
+                <i class="fas fa-phone-slash" style="font-size: 25px;"></i>
+            </button>
+        </div>
     </div>
 
-    <script>
-        // Initialize Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyDB_ylrW7hartjCjSAqjjZjUoNSrSX7Et4",
-            authDomain: "blogs-a7325.firebaseapp.com",
-            databaseURL: "https://blogs-a7325-default-rtdb.firebaseio.com",
-            projectId: "blogs-a7325",
-            storageBucket: "blogs-a7325.appspot.com",
-            messagingSenderId: "868013133674",
-            appId: "1:868013133674:web:8ceaa7dfa63ee0d2a0df13",
-            measurementId: "G-RJX09FKMMY"
-        };
-        
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
 
-        // WebRTC configuration
-        const configuration = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' },
-            ]
-        };
 
-        let peerConnection;
-        let localStream;
-        let roomId;
-
-        // DOM elements
-        const createButton = document.getElementById('createButton');
-        const joinButton = document.getElementById('joinButton');
-        const hangupButton = document.getElementById('hangupButton');
-        const roomIdInput = document.getElementById('roomId');
-        const statusDiv = document.getElementById('status');
-        const errorDiv = document.getElementById('error');
-
-        // Event listeners
-        createButton.addEventListener('click', createRoom);
-        joinButton.addEventListener('click', joinRoom);
-        hangupButton.addEventListener('click', hangup);
-
-        async function createRoom() {
-            try {
-                roomId = roomIdInput.value || Math.random().toString(36).substring(7);
-                roomIdInput.value = roomId;
-                
-                // Get local audio stream
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // Create peer connection
-                peerConnection = new RTCPeerConnection(configuration);
-                setupPeerConnection();
-                
-                // Add local stream to peer connection
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-
-                // Create and set local description
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-
-                // Save the offer to Firebase
-                await database.ref(`rooms/${roomId}/offer`).set({
-                    type: offer.type,
-                    sdp: offer.sdp
-                });
-
-                // Listen for the answer
-                database.ref(`rooms/${roomId}/answer`).on('value', async snapshot => {
-                    const answer = snapshot.val();
-                    if (answer && !peerConnection.currentRemoteDescription) {
-                        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-                    }
-                });
-
-                updateStatus('Room created! Waiting for someone to join...');
-                updateButtons(true);
-
-            } catch (error) {
-                showError(`Error creating room: ${error.message}`);
-            }
-        }
-
-        async function joinRoom() {
-            try {
-                roomId = roomIdInput.value;
-                if (!roomId) {
-                    throw new Error('Please enter a room ID');
-                }
-
-                // Get local audio stream
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // Create peer connection
-                peerConnection = new RTCPeerConnection(configuration);
-                setupPeerConnection();
-                
-                // Add local stream to peer connection
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-
-                // Get the offer from Firebase
-                const snapshot = await database.ref(`rooms/${roomId}/offer`).get();
-                const offer = snapshot.val();
-                if (!offer) {
-                    throw new Error('Room not found');
-                }
-
-                // Set remote description (offer)
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-
-                // Create and set local description (answer)
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-
-                // Save the answer to Firebase
-                await database.ref(`rooms/${roomId}/answer`).set({
-                    type: answer.type,
-                    sdp: answer.sdp
-                });
-
-                updateStatus('Joined room! Connected to peer.');
-                updateButtons(true);
-
-            } catch (error) {
-                showError(`Error joining room: ${error.message}`);
-            }
-        }
-
-        function setupPeerConnection() {
-            // Handle ICE candidates
-            peerConnection.onicecandidate = event => {
-                if (event.candidate) {
-                    database.ref(`rooms/${roomId}/candidates`).push({
-                        candidate: event.candidate.candidate,
-                        sdpMid: event.candidate.sdpMid,
-                        sdpMLineIndex: event.candidate.sdpMLineIndex
-                    });
-                }
-            };
-
-            // Listen for remote ICE candidates
-            database.ref(`rooms/${roomId}/candidates`).on('child_added', snapshot => {
-                const candidate = snapshot.val();
-                peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            });
-
-            // Handle remote stream
-            peerConnection.ontrack = event => {
-                const remoteAudio = new Audio();
-                remoteAudio.srcObject = event.streams[0];
-                remoteAudio.play();
-                updateStatus('Connected! Audio streaming...');
-            };
-
-            // Handle connection state changes
-            peerConnection.onconnectionstatechange = () => {
-                if (peerConnection.connectionState === 'disconnected') {
-                    hangup();
-                }
-            };
-        }
-
-        function hangup() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-
-            if (roomId) {
-                database.ref(`rooms/${roomId}`).remove();
-                roomId = null;
-            }
-
-            updateStatus('Call ended');
-            updateButtons(false);
-            roomIdInput.value = '';
-        }
-
-        function updateButtons(inCall) {
-            createButton.disabled = inCall;
-            joinButton.disabled = inCall;
-            hangupButton.disabled = !inCall;
-            roomIdInput.disabled = inCall;
-        }
-
-        function updateStatus(message) {
-            statusDiv.textContent = message;
-            errorDiv.style.display = 'none';
-        }
-
-        function showError(message) {
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-            hangup();
-        }
-
-        // Clean up when the page is closed
-        window.addEventListener('beforeunload', hangup);
-    </script>
+    <script src="audio.js"></script>
 </body>
 </html>
