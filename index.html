@@ -23,6 +23,7 @@
             justify-content: center;
             background-color: #000000;
             color: white;
+            overflow-y: hidden;
         }
 
         .call-screen {
@@ -54,7 +55,7 @@
             position: fixed;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -100%);
+            transform: translate(-50%, -50%);
         }
 
         .profile-circle i {
@@ -68,10 +69,18 @@
         }
 
         .call-status {
-            margin-top: 420px;
-            font-size: 1.1rem;
-            color: #ffffff;
-        }
+    position: fixed; /* Ensure the element stays fixed on the screen */
+    top: 80%; /* Vertically center */
+    left: 50%; /* Horizontally center */
+    transform: translate(-50%, -50%); /* Center using transform */
+    z-index: 9999; /* Highest layer priority */
+    font-size: 1.1rem; /* Adjust font size */
+    color: #ffffff; /* Text color */
+    padding: 10px 20px; /* Optional: Add some padding for better design */
+    border-radius: 8px; /* Optional: Add rounded corners */
+    text-align: center; /* Optional: Center align text */
+}
+
 
         .timer {
             font-size: 1.5rem;
@@ -131,7 +140,7 @@
 
         .room-input {
             position: absolute;
-            top: 3rem;
+            top: 6rem;
             left: 50%;
             transform: translateX(-50%);
             width: 80%;
